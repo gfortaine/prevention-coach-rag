@@ -6,10 +6,10 @@ Next.js 16 / React 19 application for the Prevention Coach RAG demo.
 
 ```bash
 pnpm install
-pnpm axa:web:dev
-pnpm axa:web:lint
-pnpm axa:web:typecheck
-pnpm axa:web:build
+pnpm web:dev
+pnpm web:lint
+pnpm web:typecheck
+pnpm web:build
 ```
 
 ## Routes

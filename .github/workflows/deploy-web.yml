@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - pocs/axa-prevention-coach/apps/web/**
+      - apps/web/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -48,17 +48,17 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.vercel-config.outputs.configured == 'true'
         with:
-          node-version-file: pocs/axa-prevention-coach/apps/web/.nvmrc
+          node-version-file: apps/web/.nvmrc
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         if: steps.vercel-config.outputs.configured == 'true'
       - run: pnpm dlx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-        working-directory: pocs/axa-prevention-coach/apps/web
+        working-directory: apps/web
         if: steps.vercel-config.outputs.configured == 'true'
       - run: pnpm dlx vercel@latest build --prod --token="$VERCEL_TOKEN"
-        working-directory: pocs/axa-prevention-coach/apps/web
+        working-directory: apps/web
         if: steps.vercel-config.outputs.configured == 'true'
       - run: pnpm dlx vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-        working-directory: pocs/axa-prevention-coach/apps/web
+        working-directory: apps/web
         if: steps.vercel-config.outputs.configured == 'true'

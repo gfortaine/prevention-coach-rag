@@ -16,7 +16,6 @@ __pycache__/
 
 # Local runtimes
 .vercel/
-.turbo/
 .langgraph_api/
 .pytest_cache/
 .ruff_cache/

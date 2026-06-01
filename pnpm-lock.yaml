@@ -12,7 +12,7 @@ importers:
         specifier: ^2.9.16
         version: 2.9.16
 
-  pocs/axa-prevention-coach/apps/web:
+  apps/web:
     dependencies:
       '@axa-fr/canopee-css':
         specifier: 1.6.0
@@ -63,8 +63,6 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
-
-  pocs/axa-prevention-coach/services/agent: {}
 
 packages:
 

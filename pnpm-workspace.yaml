@@ -1,4 +1,2 @@
 packages:
-  - pocs/*/apps/*
-  - pocs/*/services/*
-  - pocs/*/packages/*
+  - apps/*

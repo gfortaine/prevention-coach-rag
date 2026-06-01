@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-  A[Browser] --> B[Next.js UI - pocs/axa-prevention-coach/apps/web]
+  A[Browser] --> B[Next.js UI - apps/web]
   B --> C[Next.js BFF routes]
   C --> D[LangGraph Cloud auth token - server side only]
   D --> E[LangGraph Agent Server EU]

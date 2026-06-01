@@ -2,8 +2,7 @@
 
 ## Web on Vercel
 
-`pocs/axa-prevention-coach/apps/web` is deployable as a standard Next.js
-application.
+`apps/web` is deployable as a standard Next.js application.
 
 Required production variables depend on the desired runtime:
 
@@ -23,14 +22,13 @@ answer.
 
 ## LangGraph agent
 
-`pocs/axa-prevention-coach/services/agent/langgraph.json` exposes the
-`axa_prevention_coach` graph and configures the Agent Server semantic store and
-custom authentication handler.
+`services/agent/langgraph.json` exposes the `axa_prevention_coach` graph and
+configures the Agent Server semantic store and custom authentication handler.
 
 Local development:
 
 ```bash
-cd pocs/axa-prevention-coach/services/agent
+cd services/agent
 uv sync --group dev
 uv run langgraph dev --no-browser
 ```
@@ -38,7 +36,7 @@ uv run langgraph dev --no-browser
 In another shell, seed the local Agent Server store:
 
 ```bash
-cd pocs/axa-prevention-coach/services/agent
+cd services/agent
 LANGGRAPH_API_URL=http://127.0.0.1:2024 uv run python scripts/seed_store.py
 ```
 

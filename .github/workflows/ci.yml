@@ -19,20 +19,20 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version-file: pocs/axa-prevention-coach/apps/web/.nvmrc
+          node-version-file: apps/web/.nvmrc
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm axa:web:lint
-      - run: pnpm axa:web:typecheck
-      - run: pnpm axa:web:build
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run build
 
   agent:
     name: Agent
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: pocs/axa-prevention-coach/services/agent
+        working-directory: services/agent
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -44,27 +44,3 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pyright
       - run: uv run pytest
-
-  monorepo:
-    name: Monorepo task graph
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: pocs/axa-prevention-coach/apps/web/.nvmrc
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: latest
-          enable-cache: true
-      - run: pnpm install --frozen-lockfile
-      - run: uv sync --group dev --frozen
-        working-directory: pocs/axa-prevention-coach/services/agent
-      - run: pnpm run lint
-      - run: pnpm run typecheck
-      - run: pnpm run test
