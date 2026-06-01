@@ -1,13 +1,14 @@
 export type Audience = "particulier" | "flotte" | "mixte";
 
 export type RetrieverKind =
+  | "mistral-document-library"
   | "langsmith-agent-store"
   | "langgraph-agent-server"
   | "vertex-ai-search"
   | "pinecone-serverless"
   | "elastic-cloud";
 
-export type GenerationMode = "openai" | "langgraph-cloud" | "retrieval-unavailable";
+export type GenerationMode = "mistral-document-library" | "langgraph-cloud" | "retrieval-unavailable";
 
 export interface PreventionDocument {
   id: string;
@@ -79,6 +80,8 @@ export interface SourceCitation {
   title: string;
   sourceUrl: string;
   page?: number;
+  guideDomain?: PreventionDocument["guideDomain"];
+  sourceId?: string;
 }
 
 export interface ResponseTelemetry {

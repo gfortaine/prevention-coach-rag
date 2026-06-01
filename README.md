@@ -3,8 +3,9 @@
 [![CI](https://github.com/gfortaine/axa-prevention-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/gfortaine/axa-prevention-coach/actions/workflows/ci.yml)
 
 Independent interview prototype for an agentic prevention assistant: a
-Next.js BFF and AXA-like UI connected to a Python LangGraph agent, semantic
-RAG, LangSmith observability and Mistral Voxtral text-to-speech.
+Next.js BFF and AXA-like UI connected to a Python LangGraph agent, Mistral
+managed vector-store RAG, LangSmith observability and Mistral Voxtral
+text-to-speech.
 
 Live demo: <https://axa-prevention-coach.vercel.app>
 
@@ -18,10 +19,10 @@ flowchart LR
   WEB --> BFF[Next.js API / BFF<br/>/api/chat + /coach_bot]
   BFF --> LG[LangGraph Agent Server<br/>axa_prevention_coach]
   LG --> RISK[Risk + compliance nodes]
-  LG --> STORE[(LangGraph semantic store<br/>Postgres + pgvector)]
-  PDF[PDF prevention sources<br/>road safety, climate, natural events] --> INGEST[LiteParse ingestion adapter]
-  INGEST --> STORE
-  LG --> LLM[OpenAI chat model]
+  LG --> MISTRAL[Mistral Agent<br/>document_library tool]
+  PDF[PDF prevention sources<br/>road safety, climate, natural events] --> LIB[(Mistral Document Library)]
+  LIB --> MISTRAL
+  MISTRAL --> LG
   LG --> LS[LangSmith traces<br/>tokens, cost, latency, CO2]
   LG --> BFF
   BFF --> TTS[Mistral Voxtral TTS]
@@ -32,7 +33,9 @@ flowchart LR
 
 - **Agentic orchestration:** LangGraph graph with intent, retrieval, risk,
   generation, compliance and BFF formatting nodes.
-- **RAG:** LangSmith/LangGraph built-in Postgres + pgvector semantic store, fed from prevention PDF sources through LiteParse-normalized chunks.
+- **RAG:** Mistral Document Library as the managed vector store, queried through
+  a Mistral Agent `document_library` tool from a LangGraph node. There is no
+  OpenAI/Qdrant/Ragie/Pinecone fallback for documentary answers.
 - **BFF compatibility:** `/api/chat` and `/coach_bot` contracts for a web UI
   and reverse-engineered AXA-style surface.
 - **Voice:** server-side Mistral Voxtral TTS streaming via `/api/tts/stream`.
@@ -56,7 +59,7 @@ docs/              Architecture, deployment, security, observability and ADRs
 | --- | --- | --- |
 | Python expertise | Implemented | `services/agent`, type hints, Ruff/Pyright/pytest gates |
 | LangGraph / agentic systems | Implemented | Graph nodes in `services/agent/agent/graph.py` |
-| RAG / vector store | Implemented | LangSmith/LangGraph built-in semantic store, LiteParse ingestion adapter |
+| RAG / vector store | Implemented | Mistral Document Library + Agent `document_library` tool |
 | Microservice / REST BFF | Implemented | Next.js server routes, `/api/chat`, `/coach_bot`, TTS routes |
 | CI/CD / clean code | Implemented | GitHub Actions, lint, typecheck, build, tests |
 | Observability | Partial/demo | LangSmith traces + metadata; OTEL/Dynatrace documented roadmap |
@@ -89,16 +92,19 @@ uv sync --group dev
 uv run langgraph dev --no-browser
 ```
 
-Seed a running Agent Server:
+Create or reuse the Mistral Document Library and Agent:
 
 ```bash
-uv run python scripts/seed_store.py
+export MISTRAL_API_KEY=...
+uv run python scripts/mistral_library_admin.py --upload-corpus-documents --poll
+uv run python scripts/mistral_library_admin.py --doctor
 ```
 
-For local development, keep `LANGGRAPH_API_URL=http://127.0.0.1:2024` and seed
-the `langgraph dev` store before starting the web app. Runtime retrieval is
-strict: if the semantic store is empty or unavailable, the graph returns an
-explicit retrieval warning instead of using a local lexical answer path.
+Set the printed `MISTRAL_LIBRARY_ID`, `MISTRAL_AGENT_ID` and
+`MISTRAL_DOCUMENT_METADATA_PATH` values in the Agent Server environment. Runtime
+retrieval is strict: if Mistral Document Library is missing or unavailable, the
+graph returns an explicit unavailable state instead of using OpenAI or a local
+fallback.
 
 ## Quality gates
 

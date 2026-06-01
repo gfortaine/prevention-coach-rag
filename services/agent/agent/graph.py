@@ -1,26 +1,26 @@
 from __future__ import annotations
 
 import math
-import os
 import re
 import time
 import unicodedata
 import uuid
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
-from langgraph.config import get_store
 from langgraph.graph import END, StateGraph
-from langgraph.store.base import BaseStore
+
+from .constants import GUIDE_DOMAINS
+from .mistral_doc_library import (
+    MistralDocumentLibraryError,
+    is_mistral_document_library_configured,
+    query_mistral_document_library,
+)
 
 Audience = Literal["particulier", "flotte", "mixte"]
 SourceTopic = Literal["securite_routiere", "climat_ges", "evenements_naturels"]
 
-NAMESPACE = ("axa_prevention", "documents")
 MAX_CITED_SOURCES = 2
-RETRIEVAL_LIMIT = 8
 STOP_WORDS = {
     "avec",
     "dans",
@@ -63,6 +63,7 @@ class AgentState(TypedDict, total=False):
     retrieval_is_cloud: bool
     retrieval_warning: NotRequired[str]
     sources: list[dict[str, Any]]
+    mistral_answer: NotRequired[str]
     risk: RiskAssessment
     answer: str
     generationMode: str
@@ -120,27 +121,6 @@ def _infer_audience(message: str, requested: str | None) -> Audience:
     if any(marker in normalized for marker in ["jeune", "accident", "je "]):
         return "particulier"
     return "mixte"
-
-
-def _retrieve_store(store: BaseStore, query: str, top_k: int = RETRIEVAL_LIMIT) -> list[dict[str, Any]]:
-    if store is None:
-        raise RuntimeError("LangGraph semantic store is unavailable.")
-    try:
-        results = store.search(NAMESPACE, query=query, limit=top_k)
-    except Exception as exc:
-        raise RuntimeError("LangGraph semantic store search failed.") from exc
-    documents: list[dict[str, Any]] = []
-    for item in results:
-        value = dict(item.value)
-        documents.append(
-            {
-                **value,
-                "id": value.get("id") or item.key,
-                "score": round(float(item.score or 0), 4),
-                "excerpt": str(value.get("content", ""))[:260],
-            }
-        )
-    return documents
 
 
 def _infer_query_topic(message: str) -> SourceTopic | None:
@@ -336,8 +316,9 @@ def _citation_from_document(document: dict[str, Any], index: int) -> dict[str, A
         "id": f"{document.get('id', 'source')}-{index + 1}",
         "label": f"[{index + 1}]",
         "title": f"{document.get('title', 'Source')}{page_suffix}",
-        "sourceUrl": document.get("citationUrl") or document.get("sourceUrl"),
+        "sourceUrl": _citation_url_from_document(document),
         "page": page,
+        "guideDomain": document.get("guideDomain") if document.get("guideDomain") in GUIDE_DOMAINS else None,
     }
 
 
@@ -345,44 +326,26 @@ def _build_citations(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [_citation_from_document(source, index) for index, source in enumerate(sources[:MAX_CITED_SOURCES])]
 
 
-def _source_context(sources: list[dict[str, Any]]) -> str:
-    if not sources:
-        return "Aucune source documentaire pertinente n'a ete retrouvee."
-    chunks = []
-    for index, source in enumerate(sources[:MAX_CITED_SOURCES], start=1):
-        excerpt = source.get("excerpt") or str(source.get("content", ""))[:700]
-        chunks.append(
-            "\n".join(
-                [
-                    f"[{index}] {source.get('title', 'Source AXA Prevention')}",
-                    f"URL: {source.get('citationUrl') or source.get('sourceUrl')}",
-                    f"Extrait: {excerpt}",
-                ]
-            )
-        )
-    return "\n\n".join(chunks)
+def _citation_url_from_document(document: dict[str, Any]) -> str:
+    page = document.get("sourcePage") or document.get("page")
+    guide_domain = document.get("guideDomain")
+    citation_url = str(document.get("citationUrl") or "")
+    if citation_url.startswith("/guide/"):
+        if page and "?page=" not in citation_url:
+            return f"/guide/{guide_domain}?page={page}" if guide_domain in GUIDE_DOMAINS else citation_url
+        return citation_url
+    if guide_domain in GUIDE_DOMAINS:
+        return f"/guide/{guide_domain}?page={page}" if page else f"/guide/{guide_domain}"
+    return citation_url or str(document.get("sourceUrl") or "#")
 
 
-def _chat_history_context(history: Any) -> str:
-    if not isinstance(history, list) or not history:
-        return "Aucun historique conversationnel recent."
-    lines = []
-    for item in history[-8:]:
-        if not isinstance(item, dict):
-            continue
-        role = "Assistant" if item.get("role") == "assistant" else "Utilisateur"
-        content = str(item.get("content", "")).strip()
-        if content:
-            lines.append(f"{role}: {content[:1200]}")
-    return "\n".join(lines) or "Aucun historique conversationnel recent."
-
-
-def _as_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        return " ".join(str(part.get("text", part)) if isinstance(part, dict) else str(part) for part in content)
-    return str(content)
+def _strip_source_sections(answer: str) -> str:
+    return re.sub(
+        r"\n+(?:#{1,6}\s*)?(?:sources(?:\s+principales)?|references|références)\s*:?\s*[\s\S]*$",
+        "",
+        answer,
+        flags=re.IGNORECASE,
+    ).strip()
 
 
 def _is_general_conversation(message: str) -> bool:
@@ -401,53 +364,6 @@ def _is_general_conversation(message: str) -> bool:
         "qui es tu",
         "que peux tu faire",
     }
-
-
-def _generate_answer(
-    message: str, sources: list[dict[str, Any]], risk: RiskAssessment, state: AgentState
-) -> dict[str, str]:
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is required for LangGraph Cloud generation.")
-
-    is_general_conversation = _is_general_conversation(message)
-    system_prompt = (
-        "Tu es l'Assistant Prevention AXA pour un MVP d'entretien. "
-        "Reponds en francais, de facon concise, utile et prudente. "
-        "Si l'utilisateur formule une salutation, un remerciement ou une question generale sans demande documentaire, "
-        "reponds naturellement en une ou deux phrases et propose ton aide sur la prevention routiere, le climat ou les evenements naturels; "
-        "dans ce cas, ne force pas de citations. "
-        "Pour toute question de prevention, securite routiere, climat, evenement naturel ou flotte, "
-        "appuie-toi uniquement sur les sources fournies et cite les affirmations importantes avec [1], [2], etc. "
-        "N'utilise que des sources directement pertinentes pour le sujet et cite au maximum deux sources. "
-        "Si ces sources sont insuffisantes pour une question documentaire, dis-le clairement et propose une question de clarification. "
-        "Ne donne pas de conseil medical, juridique ou d'urgence operationnelle; oriente vers les secours ou un humain competent si necessaire."
-    )
-    human_prompt = "\n\n".join(
-        [
-            f"Question utilisateur: {message}",
-            "Historique recent (contexte conversationnel seulement, pas une source documentaire):",
-            _chat_history_context(state.get("chat_history") or state.get("chatHistory")),
-            (
-                "Mode conversation generale: reponds sans citations ni liste de sources."
-                if is_general_conversation
-                else f"Niveau de risque estime: {risk['level']} ({risk['score']}/100). {risk['headline']}"
-            ),
-            "Sources disponibles:",
-            "Non necessaires pour cette demande generale." if is_general_conversation else _source_context(sources),
-            "Redige une reponse naturelle, non templatisée. Cite explicitement les sources seulement lorsque la reponse s'appuie sur une information documentaire.",
-        ]
-    )
-
-    try:
-        model = ChatOpenAI(model=os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini"), temperature=0.1)
-        result = model.invoke([SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)])
-    except Exception as exc:
-        raise RuntimeError(f"LangGraph Cloud generation failed ({type(exc).__name__}).") from exc
-
-    answer = _as_text(result.content).strip()
-    if sources and not is_general_conversation and not re.search(r"\[\d+\]", answer):
-        answer = f"{answer.rstrip()} [{1}]."
-    return {"answer": answer, "generationMode": "langgraph-cloud"}
 
 
 def _telemetry(message: str, answer: str, started_at: float, source_count: int) -> dict[str, Any]:
@@ -477,32 +393,34 @@ def classify_intent(state: AgentState) -> dict[str, Any]:
 
 def retrieve_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     message = state["message"]
-    try:
-        store: BaseStore = get_store()
-        store_documents = _retrieve_store(store, message)
-    except RuntimeError as exc:
-        return {
-            "sources": [],
-            "retrieval_label": "LangSmith Agent Server semantic store",
-            "retrieval_kind": "langsmith-agent-store",
-            "retrieval_is_cloud": False,
-            "retrieval_warning": f"Store semantique LangGraph indisponible: {exc}",
-        }
+    if is_mistral_document_library_configured():
+        try:
+            result = query_mistral_document_library(message, state.get("chat_history") or state.get("chatHistory"))
+            return {
+                "sources": result["sources"],
+                "citations": result["citations"],
+                "mistral_answer": result["answer"],
+                "retrieval_label": "Mistral Document Library",
+                "retrieval_kind": "mistral-document-library",
+                "retrieval_is_cloud": True,
+            }
+        except MistralDocumentLibraryError as exc:
+            return {
+                "sources": [],
+                "citations": [],
+                "retrieval_label": "Mistral Document Library",
+                "retrieval_kind": "mistral-document-library",
+                "retrieval_is_cloud": False,
+                "retrieval_warning": str(exc),
+            }
 
-    store_documents = _select_relevant_sources(message, state["audience"], store_documents)
-    if store_documents:
-        return {
-            "sources": store_documents,
-            "retrieval_label": "LangSmith Agent Server semantic store",
-            "retrieval_kind": "langsmith-agent-store",
-            "retrieval_is_cloud": True,
-        }
     return {
         "sources": [],
-        "retrieval_label": "LangSmith Agent Server semantic store",
-        "retrieval_kind": "langsmith-agent-store",
+        "citations": [],
+        "retrieval_label": "Mistral Document Library",
+        "retrieval_kind": "mistral-document-library",
         "retrieval_is_cloud": False,
-        "retrieval_warning": "Store semantique LangGraph disponible mais aucune source pertinente n'a ete retrouvee.",
+        "retrieval_warning": "MISTRAL_API_KEY et MISTRAL_AGENT_ID sont requis; aucun fallback OpenAI n'est autorise.",
     }
 
 
@@ -511,11 +429,27 @@ def score_risk(state: AgentState) -> dict[str, Any]:
 
 
 def generate_answer(state: AgentState) -> dict[str, Any]:
-    citations = [] if _is_general_conversation(state["message"]) else _build_citations(state["sources"])
+    citations = (
+        []
+        if _is_general_conversation(state["message"])
+        else state.get("citations") or _build_citations(state["sources"])
+    )
+    if state.get("mistral_answer"):
+        return {
+            "answer": _strip_source_sections(state["mistral_answer"]),
+            "generationMode": "mistral-document-library",
+            "citations": citations,
+        }
+    if _is_general_conversation(state["message"]):
+        return {
+            "answer": "Bonjour, je suis l'assistant prevention AXA. Je peux vous aider sur la prevention routiere, le climat ou les evenements naturels.",
+            "generationMode": "retrieval-unavailable",
+            "citations": [],
+        }
     if not citations and not _is_general_conversation(state["message"]):
         answer = (
-            "Je ne peux pas repondre de facon fiable avec les sources AXA disponibles actuellement. "
-            "Le store semantique LangGraph est vide, indisponible ou n'a pas retourne de document pertinent."
+            "Je ne peux pas repondre de facon documentaire fiable pour l'instant: "
+            "Mistral Document Library n'est pas configure ou n'a pas retourne de source exploitable."
         )
         return {
             "answer": answer,
@@ -523,7 +457,12 @@ def generate_answer(state: AgentState) -> dict[str, Any]:
             "generation_warning": "Generation documentaire bloquee par la politique RAG stricte.",
             "citations": citations,
         }
-    return {**_generate_answer(state["message"], state["sources"], state["risk"], state), "citations": citations}
+    return {
+        "answer": "Je ne peux pas generer de reponse documentaire sans retour Mistral Document Library.",
+        "generationMode": "retrieval-unavailable",
+        "generation_warning": "Generation documentaire bloquee: aucun fallback OpenAI autorise.",
+        "citations": citations,
+    }
 
 
 def compliance_check(state: AgentState) -> dict[str, Any]:
@@ -590,7 +529,11 @@ def compliance_check(state: AgentState) -> dict[str, Any]:
             {
                 "name": state["retrieval_label"],
                 "status": "active" if state["retrieval_is_cloud"] else "ready",
-                "detail": "RAG store semantique Postgres/pgvector gere par LangSmith/LangGraph.",
+                "detail": (
+                    "RAG PDF managé par Mistral Agents document_library."
+                    if state["retrieval_kind"] == "mistral-document-library"
+                    else "RAG documentaire distant."
+                ),
             },
             {"name": "LangSmith", "status": "active", "detail": "Traces, latence, noeuds et sources consultables."},
         ],

@@ -6,8 +6,9 @@ Accepted for MVP.
 
 ## Decision
 
-Target LangGraph/LangSmith EU deployment and semantic store. The web BFF fails
-closed if the graph is unavailable; no local web fallback answer is generated.
+Target a Python LangGraph/LangSmith EU deployment with Mistral Document Library
+for managed PDF RAG. The web BFF fails closed if the graph or Mistral
+document-library path is unavailable; no local web fallback answer is generated.
 
 ## Consequences
 

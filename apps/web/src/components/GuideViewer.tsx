@@ -36,27 +36,47 @@ const guides = {
   },
 } as const;
 
-export function GuideViewer({ domain, initialPage }: GuideViewerProps) {
-  const [page, setPage] = useState(() => {
-    if (typeof window === "undefined") {
-      return initialPage;
-    }
+function parsePositivePage(value: string | null | undefined) {
+  const page = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(page) && page > 0 ? page : undefined;
+}
 
-    const hashPage = Number.parseInt(window.location.hash.replace("#", ""), 10);
-    return Number.isFinite(hashPage) && hashPage > 0 ? hashPage : initialPage;
-  });
+function pageFromHash(hash: string) {
+  const rawHash = hash.replace(/^#/, "").trim();
+  if (!rawHash) return undefined;
+
+  return parsePositivePage(rawHash.startsWith("page=") ? rawHash.slice("page=".length) : rawHash);
+}
+
+export function GuideViewer({ domain, initialPage }: GuideViewerProps) {
+  const [page, setPage] = useState(initialPage);
   const guide = guides[domain as keyof typeof guides] || guides.securite_routiere;
 
   useEffect(() => {
-    const handleHashChange = () => {
-      const hashPage = Number.parseInt(window.location.hash.replace("#", ""), 10);
-      if (Number.isFinite(hashPage) && hashPage > 0) {
-        setPage(hashPage);
+    const syncPageFromLocation = () => {
+      const currentUrl = new URL(window.location.href);
+      const queryPage = parsePositivePage(currentUrl.searchParams.get("page"));
+      if (queryPage) {
+        setPage(queryPage);
+        return;
       }
+
+      const hashPage = pageFromHash(currentUrl.hash);
+      if (!hashPage) return;
+
+      currentUrl.hash = "";
+      currentUrl.searchParams.set("page", String(hashPage));
+      window.history.replaceState(window.history.state, "", `${currentUrl.pathname}${currentUrl.search}`);
+      setPage(hashPage);
     };
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    syncPageFromLocation();
+    window.addEventListener("hashchange", syncPageFromLocation);
+    window.addEventListener("popstate", syncPageFromLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncPageFromLocation);
+      window.removeEventListener("popstate", syncPageFromLocation);
+    };
   }, []);
 
   const pdfSrc = useMemo(() => `${guide.pdfUrl}#page=${page}`, [guide.pdfUrl, page]);

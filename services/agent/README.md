@@ -29,29 +29,34 @@ uv run pyright
 uv run pytest
 ```
 
-## Seed semantic store
+## Mistral Document Library RAG
 
-With a local or cloud Agent Server running:
+The managed PDF RAG path is Mistral-only. Mistral Document Library is treated as
+the managed vector store: it owns parsing, chunking, embeddings, vector search
+and raw references. LangGraph owns routing, graph state, citation normalization
+and the public response contract.
 
 ```bash
-uv run python scripts/seed_store.py
+export MISTRAL_API_KEY=...
+uv run python scripts/mistral_library_admin.py --upload-corpus-documents --poll
+uv run python scripts/mistral_library_admin.py --doctor
 ```
 
-By default the script targets `LANGGRAPH_API_URL` or `http://127.0.0.1:2024`
-for local `langgraph dev`. It writes records into namespace
-`("axa_prevention", "documents")`.
+The script prints the values to set on the Agent Server:
 
-Inputs:
+```bash
+MISTRAL_LIBRARY_ID=...
+MISTRAL_AGENT_ID=...
+MISTRAL_DOCUMENT_METADATA_PATH=corpus/mistral_documents.json
+```
 
-- curated seed records from `corpus/axa_prevention.jsonl`;
-- optional raw files in `corpus/raw/`, parsed with LiteParse (`lit parse`);
-- optional source metadata in `corpus/sources.json`.
+When `MISTRAL_API_KEY` and `MISTRAL_AGENT_ID` are configured, `agent/graph.py`
+uses the Mistral Agent `document_library` tool for the answer and citations,
+then normalizes Mistral references to the web app `SourceCitation` format.
+No OpenAI, Qdrant, Ragie, Pinecone, semantic-store or lexical fallback is used
+for documentary answers. If Mistral is unavailable, the graph fails closed with
+an explicit unavailable state.
 
-LiteParse is used as the local parser, not as a native LangChain loader. The
-script adapts LiteParse JSON into canonical chunks with page/source/hash
-metadata, then upserts those chunks into the built-in LangSmith/LangGraph
-Postgres + pgvector store.
-
-Runtime graph retrieval is strict: the JSONL corpus is seed data only. If the
-semantic store is empty or unavailable, the graph returns an explicit retrieval
-warning instead of generating from a local lexical answer path.
+The admin script is idempotent: it reuses a configured or same-named Library,
+skips already uploaded documents by file name, retries upload rate limits, polls
+processing when requested and writes `corpus/mistral_documents.json` atomically.

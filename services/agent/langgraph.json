@@ -4,13 +4,6 @@
   "graphs": {
     "axa_prevention_coach": "./agent/graph.py:graph"
   },
-  "store": {
-    "index": {
-      "embed": "openai:text-embedding-3-small",
-      "dims": 1536,
-      "fields": ["title", "content", "tags", "sourceUrl", "documentFamily", "guideDomain"]
-    }
-  },
   "env": ".env",
   "auth": {
     "path": "./agent/auth.py:auth"

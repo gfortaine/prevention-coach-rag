@@ -8,8 +8,8 @@ flowchart TD
   B --> C[Next.js BFF routes]
   C --> D[LangGraph Cloud auth token - server side only]
   D --> E[LangGraph Agent Server EU]
-  E --> G[Built-in Postgres/pgvector store namespace axa_prevention/documents]
-  E --> H[OpenAI chat model]
+  E --> G[Mistral RAG Agent document_library]
+  G --> H[(Mistral Document Library<br/>managed vector store)]
   E --> I[LangSmith traces]
   C --> J[Mistral Voxtral TTS]
 ```
@@ -34,29 +34,36 @@ an interview review.
 
 ## RAG pipeline
 
-The MVP uses LangSmith/LangGraph Agent Server semantic search on the built-in
-Postgres-backed long-term store with pgvector. We do not use the alpha
-`custom-store` path for the MVP because the built-in store already provides the
-required persistence, semantic index and local/cloud parity. A custom store is a
-future adapter if AXA requires controlled infrastructure, advanced ACL/tenancy,
-hybrid ranking or strict residency.
+The MVP uses Mistral Document Library via Mistral Agents API. Documentary
+answers are Mistral-only: if the Mistral Library/Agent is missing or unavailable,
+the graph returns an explicit unavailable state instead of falling back to
+OpenAI, a local lexical answer, Qdrant, Ragie or Pinecone.
+
+Mistral Document Library is the managed vector store. Mistral owns parsing,
+chunking, embeddings, vector search and raw references. LangGraph/LangSmith own
+the application control plane: routing, graph state, fail-closed behavior,
+tracing/evals, and normalization into the stable web citation contract.
 
 File ingestion is separate from retrieval:
 
 1. Source manifest defines allowed documents, public URLs, display titles and
    domain tags.
-2. LiteParse parses PDFs/files locally and outputs structured page text/layout.
-3. The ingestion adapter normalizes pages into canonical chunks with page,
-   source, hash and domain metadata.
-4. `scripts/seed_store.py` upserts chunks into namespace
-   `("axa_prevention", "documents")`.
-5. The graph retrieves with the Agent Server store and filters/reranks before
-   grounded generation.
+2. `scripts/mistral_library_admin.py` creates/reuses a Mistral Library.
+3. The script uploads PDF/DOCX/PPTX/TXT files to the Library and can poll
+   processing status.
+4. The script creates/reuses a Mistral Agent with the `document_library` tool.
+5. The graph calls that single-purpose Mistral RAG Agent with `store=False`
+   when supported and normalizes Mistral `tool_reference` / `reference` chunks
+   into internal `/guide/<domain>?page=<n>` links.
 
-LiteParse is a parser, not a native LangChain PDF loader. Owning a small adapter
-keeps downstream chunking and indexing independent from any parser-specific API.
-At runtime, empty or unavailable semantic search produces an explicit retrieval
-warning instead of a local lexical answer path.
+Local corpus metadata remains useful only for stable titles, guide domains and
+page links. It is not a fallback retriever.
+
+This differs from a fully Mistral-native app such as
+`antoine-palazz/use-case-design`: that reference lets Mistral Agents,
+Conversations and handoffs own most orchestration. This repo keeps LangGraph as
+the portfolio control plane and uses the Mistral Agent only as a managed RAG
+appliance behind one graph node.
 
 ## Enterprise target trajectory
 
@@ -64,8 +71,8 @@ The demo is not deployed on AXA infrastructure. The intended enterprise
 trajectory is:
 
 - Azure API Management or equivalent gateway in front of BFF/agent services.
-- Azure OpenAI or approved model gateway for generation.
-- Azure AI Search or Databricks Vector Search for governed RAG.
+- Mistral or an AXA-approved model gateway for generation.
+- Mistral Document Library or AXA-governed managed RAG for PDF retrieval.
 - OpenShift/Kubernetes for controlled runtime isolation.
 - OAuth2/OIDC, managed identities and Key Vault for authentication/secrets.
 - OpenTelemetry traces exported to Dynatrace and/or LangSmith/Langfuse.

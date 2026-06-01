@@ -4,8 +4,8 @@
 
 - Public web demo on Vercel.
 - Python LangGraph agent.
-- Semantic RAG with LangSmith/LangGraph built-in Postgres + pgvector store.
-- LiteParse-based file ingestion adapter for PDF/file seed data.
+- Mistral Document Library RAG via Mistral Agents API.
+- Mistral library/admin ingestion script for PDF/file sources.
 - Mistral Voxtral TTS.
 - AXA-like UX and Canopée design-system integration.
 

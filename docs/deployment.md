@@ -71,7 +71,7 @@ the BFF returns an explicit error instead of generating a local answer.
 ## LangGraph agent
 
 `services/agent/langgraph.json` exposes the `axa_prevention_coach` graph and
-configures the Agent Server semantic store and custom authentication handler.
+configures the Python LangGraph Agent Server and custom authentication handler.
 
 Local development:
 
@@ -81,16 +81,25 @@ uv sync --group dev
 uv run langgraph dev --no-browser
 ```
 
-In another shell, seed the local Agent Server store:
+In another shell, create or reuse the Mistral Library/Agent used for managed PDF
+RAG:
 
 ```bash
 cd services/agent
-LANGGRAPH_API_URL=http://127.0.0.1:2024 uv run python scripts/seed_store.py
+export MISTRAL_API_KEY=...
+uv run python scripts/mistral_library_admin.py --upload-corpus-documents --poll
+uv run python scripts/mistral_library_admin.py --doctor
 ```
 
-`scripts/seed_store.py` targets `LANGGRAPH_API_URL` and seeds the Agent Server
-semantic store. The runtime graph uses that semantic store only and returns an
-explicit warning if the store is empty or unavailable.
+Set the printed `MISTRAL_LIBRARY_ID`, `MISTRAL_AGENT_ID` and
+`MISTRAL_DOCUMENT_METADATA_PATH` values in the Agent Server environment. The
+runtime graph uses Mistral Document Library only for documentary answers and
+returns an explicit unavailable state if Mistral is missing or unavailable.
+
+The admin script is safe to rerun: it reuses the configured/same-named Library,
+skips already uploaded document names, retries HTTP 429 upload throttling and
+writes the local manifest atomically. Use `--doctor` as a read-only deployment
+check before shipping a LangGraph/LangSmith environment.
 
 Cloud deployment should use workspace-scoped secrets only; never commit keys.
 
