@@ -1,0 +1,58 @@
+[project]
+name = "axa-prevention-agent"
+version = "0.1.0"
+description = "Python LangGraph agent for the AXA Prevention Coach MVP."
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph>=1.2.2",
+  "langchain>=1.1.0",
+  "langchain-core>=1.4.0",
+  "langchain-openai>=1.1.0",
+  "langgraph-sdk>=0.3.0,<0.4.0",
+  "langsmith>=0.8.7",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.407",
+  "pytest>=8.4.0",
+  "pytest-cov>=6.2.0",
+  "ruff>=0.14.0",
+]
+
+[build-system]
+requires = ["setuptools>=80.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agent"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF", "PL", "TID"]
+ignore = [
+  "E501",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "PLR2004",
+]
+
+[tool.pyright]
+include = ["agent", "scripts", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
+reportTypedDictNotRequiredAccess = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
