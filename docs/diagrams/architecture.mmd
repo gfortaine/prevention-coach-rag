@@ -1,0 +1,9 @@
+flowchart LR
+  User --> Web[Next.js / Canopée UI]
+  Web --> API[Next.js BFF]
+  API --> Agent[LangGraph Agent Server EU]
+  Agent --> Store[Semantic store]
+  Agent --> Model[OpenAI chat model]
+  Agent --> Trace[LangSmith]
+  API --> TTS[Mistral Voxtral]
+
