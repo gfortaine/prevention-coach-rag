@@ -17,7 +17,7 @@ flowchart LR
   U[User] --> W[Next.js web app]
   W --> BFF[Next.js API / BFF]
   BFF --> LG[LangGraph Agent Server EU]
-  LG --> RAG[Semantic store / local fallback]
+  LG --> RAG[Built-in Postgres / pgvector semantic store]
   LG --> LLM[OpenAI chat model]
   LG --> LS[LangSmith traces]
   BFF --> TTS[Mistral Voxtral TTS]
@@ -25,7 +25,7 @@ flowchart LR
 
 - **Agentic orchestration:** LangGraph graph with intent, retrieval, risk,
   generation, compliance and BFF formatting nodes.
-- **RAG:** LangSmith Agent Server semantic store with local fallback.
+- **RAG:** LangSmith/LangGraph built-in Postgres + pgvector semantic store, seeded from curated records or LiteParse-normalized files.
 - **BFF compatibility:** `/api/chat` and `/coach_bot` contracts for a web UI
   and reverse-engineered AXA-style surface.
 - **Voice:** server-side Mistral Voxtral TTS streaming via `/api/tts/stream`.
@@ -48,7 +48,7 @@ docs/              Architecture, deployment, security, observability and ADRs
 | --- | --- | --- |
 | Python expertise | Implemented | `services/agent`, type hints, Ruff/Pyright/pytest gates |
 | LangGraph / agentic systems | Implemented | Graph nodes in `services/agent/agent/graph.py` |
-| RAG / vector store | Implemented | LangSmith semantic store + local retrieval fallback |
+| RAG / vector store | Implemented | LangSmith/LangGraph built-in semantic store, LiteParse ingestion adapter |
 | Microservice / REST BFF | Implemented | Next.js server routes, `/api/chat`, `/coach_bot`, TTS routes |
 | CI/CD / clean code | Implemented | GitHub Actions, lint, typecheck, build, tests |
 | Observability | Partial/demo | LangSmith traces + metadata; OTEL/Dynatrace documented roadmap |
@@ -62,10 +62,9 @@ docs/              Architecture, deployment, security, observability and ADRs
 ### Web
 
 ```bash
-cd apps/web
-cp .env.example .env.local
-npm ci
-npm run dev
+cp apps/web/.env.example apps/web/.env.local
+pnpm install
+pnpm web:dev
 ```
 
 Open <http://localhost:3000>.
@@ -85,10 +84,15 @@ Seed a running Agent Server:
 uv run python scripts/seed_store.py
 ```
 
+For local development, keep `LANGGRAPH_API_URL=http://127.0.0.1:2024` and seed
+the `langgraph dev` store before starting the web app. Runtime retrieval is
+strict: if the semantic store is empty or unavailable, the graph returns an
+explicit retrieval warning instead of using a local lexical answer path.
+
 ## Quality gates
 
 ```bash
-cd apps/web && npm run lint && npm run typecheck && npm run build
+pnpm run lint && pnpm run typecheck && pnpm run build
 cd services/agent && uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest
 ```
 
@@ -101,4 +105,3 @@ cd services/agent && uv run ruff check . && uv run ruff format --check . && uv r
 - [Design system](docs/design-system.md)
 - [Roadmap](docs/roadmap.md)
 - [ADRs](docs/adr/)
-

@@ -302,12 +302,6 @@ textarea {
   text-decoration: none;
 }
 
-.telemetry-note {
-  color: #6b6f82;
-  font-size: 0.75rem;
-  margin: 8px 0 0;
-}
-
 .chat-footer {
   background: #fff;
   flex: 0 0 auto;
@@ -392,6 +386,12 @@ textarea {
   fill: currentcolor;
   height: 22px;
   width: 22px;
+}
+
+.chat-icon-button .mic-icon-original {
+  fill: none;
+  height: 20px;
+  width: 14px;
 }
 
 .chat-listening-bars {

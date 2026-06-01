@@ -6,13 +6,13 @@ Accepted for MVP.
 
 ## Decision
 
-Target LangGraph/LangSmith EU deployment and semantic store when configured,
-with local fallback for resilience.
+Target LangGraph/LangSmith EU deployment and semantic store. The web BFF fails
+closed if the graph is unavailable; no local web fallback answer is generated.
 
 ## Consequences
 
 - Demonstrates cloud agent runtime and traces.
-- Keeps the public demo operational when temporary service keys expire.
+- Makes cloud availability explicit during demos and avoids silently presenting
+  a degraded answer as production behavior.
 - Production AXA alignment would require enterprise identity, retention and
   observability policies.
-

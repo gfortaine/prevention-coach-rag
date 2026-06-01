@@ -88,11 +88,11 @@ const scenarios = [
 const initialResponse: ChatResponse = {
   id: "initial",
   answer: "",
-  generationMode: "deterministic",
+  generationMode: "langgraph-cloud",
   retrieval: {
-    kind: "local-fallback",
+    kind: "langgraph-agent-server",
     label: "Pret",
-    isCloud: false,
+    isCloud: true,
   },
   risk: {
     score: 18,
@@ -186,8 +186,14 @@ function StarIcon() {
 
 function MicIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path d="M12 14.8a3.2 3.2 0 0 0 3.2-3.2V6a3.2 3.2 0 0 0-6.4 0v5.6a3.2 3.2 0 0 0 3.2 3.2Zm5.6-3.2a5.6 5.6 0 0 1-11.2 0H4.8a7.2 7.2 0 0 0 6.4 7.15V22h1.6v-3.25a7.2 7.2 0 0 0 6.4-7.15h-1.6Z" />
+    <svg aria-hidden="true" className="mic-icon-original" width="14" height="20" viewBox="0 0 14 20" fill="none">
+      <path
+        d="M12.833 8.334V10A5.833 5.833 0 0 1 7 15.834m-5.833-7.5V10A5.833 5.833 0 0 0 7 15.834m0 0v2.5m-3.333 0h6.666M7 12.5A2.5 2.5 0 0 1 4.5 10V4.167a2.5 2.5 0 0 1 5 0V10A2.5 2.5 0 0 1 7 12.5"
+        stroke="#1E1E1E"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
     </svg>
   );
 }
@@ -251,6 +257,8 @@ export function CoachExperience() {
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
   const [speakingTarget, setSpeakingTarget] = useState<string | null>(null);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true);
+  const [hasStartedConversation, setHasStartedConversation] = useState(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const audioPlaybackRef = useRef<AudioPlaybackHandle | null>(null);
   const playbackSessionRef = useRef(0);
@@ -275,6 +283,8 @@ export function CoachExperience() {
     const chatHistory = buildChatHistory(turns);
 
     recognitionRef.current?.stop();
+    setSuggestionsVisible(false);
+    setHasStartedConversation(true);
     setPendingMessage(cleanMessage);
     setMessage("");
     setState({ status: "loading", data: latestData });
@@ -699,22 +709,24 @@ export function CoachExperience() {
                 apportées.
               </p>
             </div>
-            <div className="bot-suggestions" aria-label="Questions suggérées">
-              <p className="bot-suggestions__intro">Voici des exemples de questions que vous pouvez me poser&nbsp;:</p>
-              <div className="bot-suggestions__grid">
-                {scenarios.map((scenario) => (
-                  <button
-                    className="bot-suggestion"
-                    key={scenario.id}
-                    onClick={() => void submit(scenario.title, scenario.id)}
-                    type="button"
-                  >
-                    <StarIcon />
-                    <span>{scenario.title}</span>
-                  </button>
-                ))}
+            {suggestionsVisible && !hasStartedConversation ? (
+              <div className="bot-suggestions" aria-label="Questions suggérées">
+                <p className="bot-suggestions__intro">Voici des exemples de questions que vous pouvez me poser&nbsp;:</p>
+                <div className="bot-suggestions__grid">
+                  {scenarios.map((scenario) => (
+                    <button
+                      className="bot-suggestion"
+                      key={scenario.id}
+                      onClick={() => void submit(scenario.title, scenario.id)}
+                      type="button"
+                    >
+                      <StarIcon />
+                      <span>{scenario.title}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
           </article>
 
           {turns.map((turn) => {
@@ -743,10 +755,6 @@ export function CoachExperience() {
                   <div className="bot-bubble">
                     <AnswerText data={turn.response} />
                   </div>
-                  <p className="telemetry-note">
-                    Audit prototype&nbsp;: {turn.response.telemetry.total_tokens} tokens, {turn.response.telemetry.response_time}s, CO₂
-                    estimé {turn.response.telemetry.co2_emissions}.
-                  </p>
                 </article>
               </Fragment>
             );

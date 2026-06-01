@@ -4,7 +4,8 @@
 
 - Public web demo on Vercel.
 - Python LangGraph agent.
-- Semantic RAG with local fallback.
+- Semantic RAG with LangSmith/LangGraph built-in Postgres + pgvector store.
+- LiteParse-based file ingestion adapter for PDF/file seed data.
 - Mistral Voxtral TTS.
 - AXA-like UX and Canopée design-system integration.
 
@@ -19,4 +20,3 @@
    assistants.
 7. Azure/OpenShift deployment reference with IaC.
 8. MLflow/Langfuse evaluation and prompt release management.
-

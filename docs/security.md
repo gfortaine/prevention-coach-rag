@@ -7,8 +7,9 @@
 - RAG sources are treated as data, not instructions.
 - The answer generator is instructed to cite only relevant sources and avoid
   medical, legal or emergency operational advice.
-- Public deployment can operate with deterministic/local fallback when cloud
-  providers are unavailable.
+- Public deployment fails closed when LangGraph Cloud or provider credentials are
+  unavailable; the BFF returns an explicit service error instead of generating a
+  local answer.
 
 ## Known prototype limitations
 
@@ -25,4 +26,3 @@
 - OTEL traces with PII redaction.
 - Automated RAG evaluation and regression gates.
 - Rate limiting and abuse protection at gateway level.
-
