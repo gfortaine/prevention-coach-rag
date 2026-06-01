@@ -4,7 +4,21 @@
 
 `apps/web` is deployable as a standard Next.js application.
 
-For Vercel Git Integration, configure the project with:
+For Vercel Git Integration, the repository uses Vercel Services through the
+root [`vercel.json`](../vercel.json):
+
+```text
+Framework Preset: Services
+Production Branch: main
+```
+
+The `frontend` service points to `apps/web`, is mounted at `/`, and uses the
+Next.js framework. This follows Vercel's `next-fastapi-monorepo` and
+`nextjs-flask` examples while keeping the Python agent separate until it has a
+dedicated FastAPI/ASGI service wrapper.
+
+If you are not using Vercel Services, configure the project as a standard
+monorepo frontend instead:
 
 ```text
 Framework Preset: Next.js
@@ -15,9 +29,9 @@ Output Directory: .next
 Production Branch: main
 ```
 
-The monorepo root package only contains Turbo workspace scripts. If Vercel uses
-the repository root as its Root Directory, it cannot detect Next.js because
-`next` is declared in `apps/web/package.json`.
+Do not add `next` to the root `package.json` to satisfy framework detection.
+The monorepo root only contains Turbo workspace scripts; `next` intentionally
+lives in `apps/web/package.json`.
 
 Required production variables depend on the desired runtime:
 
