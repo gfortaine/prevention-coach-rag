@@ -34,7 +34,6 @@ def _configured_tokens() -> set[str]:
             os.environ.get("LANGGRAPH_AUTH_TOKEN"),
             os.environ.get("LANGGRAPH_API_KEY"),
             os.environ.get("LANGSMITH_API_KEY"),
-            os.environ.get("LANGCHAIN_API_KEY"),
         )
         if token and token.strip()
     }

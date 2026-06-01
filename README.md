@@ -14,24 +14,32 @@ Live demo: <https://axa-prevention-coach.vercel.app>
 
 ```mermaid
 flowchart LR
-  U[User] --> W[Next.js web app]
-  W --> BFF[Next.js API / BFF]
-  BFF --> LG[LangGraph Agent Server EU]
-  LG --> RAG[Built-in Postgres / pgvector semantic store]
+  U[User] --> WEB[Next.js web app<br/>AXA Canopée UI]
+  WEB --> BFF[Next.js API / BFF<br/>/api/chat + /coach_bot]
+  BFF --> LG[LangGraph Agent Server<br/>axa_prevention_coach]
+  LG --> RISK[Risk + compliance nodes]
+  LG --> STORE[(LangGraph semantic store<br/>Postgres + pgvector)]
+  PDF[PDF prevention sources<br/>road safety, climate, natural events] --> INGEST[LiteParse ingestion adapter]
+  INGEST --> STORE
   LG --> LLM[OpenAI chat model]
-  LG --> LS[LangSmith traces]
+  LG --> LS[LangSmith traces<br/>tokens, cost, latency, CO2]
+  LG --> BFF
   BFF --> TTS[Mistral Voxtral TTS]
+  BFF --> WEB
+  GH[GitHub Actions] --> VERCEL[Vercel deployment]
+  VERCEL --> WEB
 ```
 
 - **Agentic orchestration:** LangGraph graph with intent, retrieval, risk,
   generation, compliance and BFF formatting nodes.
-- **RAG:** LangSmith/LangGraph built-in Postgres + pgvector semantic store, seeded from curated records or LiteParse-normalized files.
+- **RAG:** LangSmith/LangGraph built-in Postgres + pgvector semantic store, fed from prevention PDF sources through LiteParse-normalized chunks.
 - **BFF compatibility:** `/api/chat` and `/coach_bot` contracts for a web UI
   and reverse-engineered AXA-style surface.
 - **Voice:** server-side Mistral Voxtral TTS streaming via `/api/tts/stream`.
 - **Design system:** AXA France Canopée `prospect` tokens/components, with
   custom chat surfaces for fidelity to the public assistant behavior.
 - **Observability:** LangSmith traces and lightweight FinOps/RSE metadata.
+- **Interview support:** the current presentation deck is served by the web app at [`/AXA-Prevention-Coach-support.pptx`](apps/web/public/AXA-Prevention-Coach-support.pptx).
 
 ## Repository layout
 
@@ -68,6 +76,9 @@ pnpm web:dev
 ```
 
 Open <http://localhost:3000>.
+
+The root `.env.example` is a single inventory of the shared variables; each
+runtime still loads its component-local `.env` file.
 
 ### Agent
 

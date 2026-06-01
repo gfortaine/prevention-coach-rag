@@ -43,7 +43,7 @@ STOP_WORDS = {
 
 
 class RiskAssessment(TypedDict):
-    level: Literal["faible", "modere", "eleve"]
+    level: Literal["faible", "modere", "eleve", "critique"]
     score: int
     headline: str
     signals: list[dict[str, Any]]
@@ -252,48 +252,81 @@ def _select_relevant_sources(query: str, audience: Audience, sources: list[dict[
 
 
 def _assess_risk(message: str, audience: Audience) -> RiskAssessment:
-    normalized = message.lower()
+    normalized = unicodedata.normalize("NFKD", message.lower())
+    normalized = re.sub(r"[\u0300-\u036f]", "", normalized)
     signals: list[dict[str, Any]] = []
-    score = 18
-    for keyword, label, points, evidence in [
+    score = 12
+    for keywords, label, points, evidence in [
         (
-            "vitesse",
+            ["vitesse"],
             "Vitesse excessive ou inadaptee",
             20,
             "La vitesse augmente distances d'arret, pertes de controle et gravite.",
         ),
         (
-            "pluie",
+            ["pluie", "orage", "mouille", "meteo", "aquaplaning"],
             "Conditions meteorologiques degradees",
-            16,
-            "La pluie reduit l'adherence et impose plus de distance.",
+            18,
+            "La meteo degradee reduit adherence et visibilite; les distances doivent augmenter.",
         ),
-        ("fatigue", "Fatigue ou somnolence", 18, "La fatigue reduit vigilance et temps de reaction."),
-        ("telephone", "Distraction telephone", 20, "Le telephone detourne l'attention de la route."),
-        ("accident", "Situation post-accident", 16, "Une situation d'accident exige escalade et prudence."),
         (
-            "flotte",
+            ["fatigue", "fatiguee", "sommeil", "somnolence", "nuit"],
+            "Fatigue ou somnolence",
+            24,
+            "La fatigue reduit vigilance, anticipation et temps de reaction.",
+        ),
+        (
+            ["telephone", "smartphone", "appel", "message", "sms", "notification"],
+            "Distraction telephone",
+            26,
+            "La distraction detourne simultanement regard, main et cognition.",
+        ),
+        (
+            ["jeune", "permis", "novice", "apprenti"],
+            "Jeune conducteur",
+            12,
+            "Le manque d'experience augmente le besoin de consignes simples et preventives.",
+        ),
+        (
+            ["accident", "choc", "rond-point", "constat", "panne", "blesse"],
+            "Situation post-accident ou zone non securisee",
+            22,
+            "La premiere priorite est d'eviter un sur-accident et de qualifier l'urgence.",
+        ),
+        (
+            ["flotte", "entreprise", "manager", "commerciaux", "livraison", "mission"],
             "Exposition flotte professionnelle",
-            10,
-            "Une flotte cumule exposition, repetition et responsabilite employeur.",
+            14,
+            "Les objectifs horaires et habitudes d'equipe peuvent renforcer les comportements a risque.",
         ),
     ]:
-        if keyword in normalized:
+        if any(keyword in normalized for keyword in keywords):
             score += points
             signals.append({"label": label, "impact": points, "evidence": evidence})
     if audience == "flotte":
         score += 8
-    level: Literal["faible", "modere", "eleve"] = "faible"
-    if score >= 58:
+    level: Literal["faible", "modere", "eleve", "critique"] = "faible"
+    if score >= 76:
+        level = "critique"
+    elif score >= 52:
         level = "eleve"
-    elif score >= 34:
+    elif score >= 28:
         level = "modere"
     headline = {
-        "faible": "Risque faible, conseils de prevention generaux.",
-        "modere": "Risque modere, plusieurs facteurs demandent adaptation immediate.",
-        "eleve": "Risque eleve, reduire l'exposition et escalader si une personne est en danger.",
+        "faible": "Risque faible: maintenir les bonnes pratiques et surveiller le contexte.",
+        "modere": "Risque modere: proposer des actions ciblees et reduire les facteurs aggravants.",
+        "eleve": "Risque eleve: recommander une action preventive immediate et mesurable.",
+        "critique": "Risque critique: conseiller l'arret, la mise en securite ou l'escalade immediate.",
     }[level]
-    return {"level": level, "score": min(score, 100), "headline": headline, "signals": signals}
+    if not signals:
+        signals.append(
+            {
+                "label": "Contexte incomplet",
+                "impact": 8 if audience == "flotte" else 4,
+                "evidence": "Le niveau reste prudent tant que le trajet, l'etat du conducteur et l'environnement ne sont pas qualifies.",
+            }
+        )
+    return {"level": level, "score": min(score, 96), "headline": headline, "signals": signals}
 
 
 def _citation_from_document(document: dict[str, Any], index: int) -> dict[str, Any]:

@@ -182,15 +182,15 @@ export async function runRemotePreventionGraph(request: ChatRequest): Promise<Ch
     "Content-Type": "application/json",
   };
   const authToken = process.env.LANGGRAPH_AUTH_TOKEN;
-  const apiKey = process.env.LANGGRAPH_API_KEY || process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY;
+  const apiKey = process.env.LANGGRAPH_API_KEY || process.env.LANGSMITH_API_KEY;
   if (authToken) {
     headers.Authorization = `Bearer ${authToken}`;
   } else if (apiKey) {
     headers["X-Api-Key"] = apiKey;
   } else {
-    throw new LangGraphUnavailableError("LANGGRAPH_AUTH_TOKEN or LANGGRAPH_API_KEY is required to call LangGraph Cloud.");
+    throw new LangGraphUnavailableError("LANGGRAPH_AUTH_TOKEN, LANGGRAPH_API_KEY or LANGSMITH_API_KEY is required to call LangGraph Cloud.");
   }
-  const tenantId = process.env.LANGSMITH_TENANT_ID || process.env.LANGGRAPH_TENANT_ID;
+  const tenantId = process.env.LANGSMITH_TENANT_ID;
   if (tenantId) {
     headers["X-Tenant-Id"] = tenantId;
   }

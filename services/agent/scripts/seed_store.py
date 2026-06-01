@@ -139,13 +139,13 @@ def _iter_curated_documents(path: Path) -> list[dict[str, Any]]:
 
 def main() -> None:
     args = _parse_args()
-    deployment_url = os.environ.get("LANGGRAPH_API_URL") or os.environ.get("LANGGRAPH_DEPLOYMENT_URL")
+    deployment_url = os.environ.get("LANGGRAPH_API_URL")
     if not deployment_url:
         deployment_url = "http://127.0.0.1:2024"
-    api_key = os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")
+    api_key = os.environ.get("LANGSMITH_API_KEY")
     is_local = deployment_url.startswith("http://127.0.0.1") or deployment_url.startswith("http://localhost")
     if not api_key and not is_local:
-        raise SystemExit("LANGSMITH_API_KEY or LANGCHAIN_API_KEY is required.")
+        raise SystemExit("LANGSMITH_API_KEY is required when seeding a remote LangGraph Agent Server.")
 
     headers: dict[str, str] = {}
     tenant_id = os.environ.get("LANGSMITH_TENANT_ID")

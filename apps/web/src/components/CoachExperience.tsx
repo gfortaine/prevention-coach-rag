@@ -658,6 +658,9 @@ export function CoachExperience() {
           <CanopeeLink href={assistantPreventionUrl} openInNewTab>
             Assistant original
           </CanopeeLink>
+          <CanopeeLink href="/AXA-Prevention-Coach-support.pptx" openInNewTab>
+            Support entretien
+          </CanopeeLink>
         </nav>
       </header>
 

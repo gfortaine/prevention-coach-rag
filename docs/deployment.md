@@ -10,15 +10,21 @@ Required production variables depend on the desired runtime:
 LANGGRAPH_API_URL=
 LANGGRAPH_ASSISTANT_ID=axa_prevention_coach
 LANGGRAPH_AUTH_TOKEN=
-LANGSMITH_TENANT_ID=
+LANGGRAPH_API_KEY=
 LANGSMITH_API_KEY=
+LANGSMITH_TENANT_ID=
 MISTRAL_API_KEY=
+MISTRAL_TTS_BASE_URL=https://api.mistral.ai/v1
+MISTRAL_TTS_MODEL=voxtral-mini-tts-2603
+MISTRAL_TTS_VOICE_ID=fr_marie_neutral
+MISTRAL_TTS_RESPONSE_FORMAT=mp3
+MISTRAL_TTS_CHUNK_MAX_CHARS=1800
 ```
 
-`LANGGRAPH_AUTH_TOKEN` is sent only from the Next.js BFF to LangGraph Cloud.
-The browser never receives LangGraph credentials. If the graph is unavailable or
-misconfigured, the BFF returns an explicit error instead of generating a local
-answer.
+`LANGGRAPH_AUTH_TOKEN`, `LANGGRAPH_API_KEY` and `LANGSMITH_API_KEY` are sent
+only from the Next.js BFF to LangGraph Cloud or Agent Server. The browser never
+receives LangGraph credentials. If the graph is unavailable or misconfigured,
+the BFF returns an explicit error instead of generating a local answer.
 
 ## LangGraph agent
 
@@ -40,10 +46,9 @@ cd services/agent
 LANGGRAPH_API_URL=http://127.0.0.1:2024 uv run python scripts/seed_store.py
 ```
 
-`scripts/seed_store.py` can ingest curated JSONL records and raw files from
-`corpus/raw/` parsed by LiteParse. The runtime graph uses the Agent Server
-semantic store only and returns an explicit warning if the store is empty or
-unavailable.
+`scripts/seed_store.py` targets `LANGGRAPH_API_URL` and seeds the Agent Server
+semantic store. The runtime graph uses that semantic store only and returns an
+explicit warning if the store is empty or unavailable.
 
 Cloud deployment should use workspace-scoped secrets only; never commit keys.
 
