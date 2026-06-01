@@ -1,0 +1,20 @@
+{
+  "name": "prevention-coach-rag",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public prevention coach RAG monorepo with a Next.js BFF and Python LangGraph agent.",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --filter=prevention-coach-web",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "web:build": "pnpm --filter prevention-coach-web build",
+    "web:dev": "pnpm --filter prevention-coach-web dev",
+    "web:lint": "pnpm --filter prevention-coach-web lint",
+    "web:typecheck": "pnpm --filter prevention-coach-web typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16"
+  }
+}

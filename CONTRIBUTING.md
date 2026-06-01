@@ -12,11 +12,10 @@
 Frontend:
 
 ```bash
-cd apps/web
-npm ci
-npm run lint
-npm run typecheck
-npm run build
+pnpm install
+pnpm run lint
+pnpm run typecheck
+pnpm run build
 ```
 
 Agent:
@@ -39,4 +38,3 @@ Use conventional commits where practical:
 - `docs: ...`
 - `ci: ...`
 - `chore(security): ...`
-

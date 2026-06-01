@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "pnpm": ">=10.11.0"
   },
   "dependencies": {
     "@axa-fr/canopee-css": "1.6.0",
