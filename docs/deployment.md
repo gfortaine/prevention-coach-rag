@@ -17,6 +17,19 @@ Next.js framework. This follows Vercel's `next-fastapi-monorepo` and
 `nextjs-flask` examples while keeping the Python agent separate until it has a
 dedicated FastAPI/ASGI service wrapper.
 
+Reference material:
+
+- Vercel Services skill:
+  [`vercel-services`](https://github.com/vercel/vercel-plugin/blob/e7a631ee76be860857d44d8e82ca5e82ef5c4f62/skills/vercel-services/SKILL.md)
+- Vercel Python Services skill:
+  [`vercel-python-services`](https://github.com/vercel-labs/ai-python/blob/4ff2e1923cca65b075b03617e346a2d89775004e/skills/vercel-python-services/SKILL.md)
+
+The Python service is intentionally not mounted in Vercel Services yet. The
+current LangGraph agent is an Agent Server deployment, not a FastAPI/ASGI
+service. Before adding a Python backend service to `experimentalServices`,
+validate route-prefix behavior with a minimal FastAPI health endpoint using
+`vercel dev -L` and a preview deployment.
+
 If you are not using Vercel Services, configure the project as a standard
 monorepo frontend instead:
 
