@@ -11,6 +11,9 @@ flowchart TD
   G --> H[(Mistral Document Library<br/>managed vector store)]
   C --> J[Mistral Voxtral TTS]
   D --> K[Mistral Studio target<br/>Workflows / Observability / Judges]
+  D --> L[Execution Plane Adapter]
+  L --> M[Vercel Sandbox<br/>public/sanitized workloads]
+  L -. future sensitive workloads .-> N[EU/private microVM runner]
 ```
 
 The BFF does not expose Mistral credentials to the browser. It calls the
@@ -37,6 +40,60 @@ deprecated aliases for MVP compatibility.
 
 The previous Python LangGraph graph remains in `services/agent` as reference
 material while the strategic target moves to Mistral Workflows.
+
+## Execution plane
+
+Vercel Sandboxes add a missing primitive for agentic products: safe execution of
+untrusted or AI-generated code. They run isolated Linux environments in
+Firecracker microVMs with private filesystem, process and network isolation,
+SDK/CLI control, package installs, exposed ports, and persistent snapshots.
+
+They do **not** replace Mistral. The architecture split is:
+
+| Concern | Owner |
+| --- | --- |
+| Reasoning, RAG, planning, eval hooks | Mistral Agents, Document Library, Workflows and Studio |
+| Running untrusted code, tests, scripts and previews | Execution Plane Adapter |
+| Public-demo/sanitized execution backend | Vercel Sandbox |
+| Sensitive production execution backend | Future EU/private microVM runner |
+| Durable artifacts | Product DB/object storage, not sandbox filesystem |
+
+The canonical interface should remain provider-neutral:
+
+```ts
+interface AgentExecutionPlane {
+  createSession(input: ExecutionSessionInput): Promise<ExecutionSession>;
+  runCommand(sessionId: string, command: ExecutionCommand): Promise<ExecutionResult>;
+  writeFiles(sessionId: string, files: ExecutionFile[]): Promise<void>;
+  readFiles(sessionId: string, paths: string[]): Promise<ExecutionFile[]>;
+  exposePort(sessionId: string, port: number): Promise<PreviewUrl>;
+  stopSession(sessionId: string): Promise<ExecutionSnapshot>;
+}
+```
+
+### Vercel Sandbox guardrails
+
+Vercel Sandboxes are approved for public MVPs, synthetic/sanitized data,
+portfolio demos, reproducible QA environments, and untrusted code execution that
+does not receive sensitive user data or client documents.
+
+They are **not** approved as the sovereign production execution plane for AXA or
+Deskmate sensitive workloads while the official Sandbox region is only `iad1`.
+For sensitive production use, keep the same adapter and replace the backend with
+an EU/private runner such as Firecracker/Kata/gVisor on EU Kubernetes/OpenShift,
+Azure Container Apps Jobs, or an AKS isolated runner.
+
+Security and cost controls before any sandbox creation:
+
+1. classify the input data and reject sensitive data by default;
+2. require an explicit product/environment allow-list;
+3. use short-lived scoped credentials or no credentials, never long-lived
+   provider secrets;
+4. set timeout, vCPU/memory and storage caps;
+5. tag sessions with product, environment, user/session, trace ID and cost
+   center;
+6. restrict egress with firewall/domain allow-lists before production pilots;
+7. call `stop()` explicitly and persist durable outputs outside the sandbox.
 
 ## RAG pipeline
 
@@ -79,6 +136,10 @@ trajectory is:
 - Mistral Document Library or AXA-governed managed RAG for PDF retrieval.
 - Mistral Workflows for durable multi-step processes once worker hosting and
   Studio entitlements are proven.
+- Vercel Sandboxes for public/sanitized agentic execution, live previews and QA
+  workbenches behind a provider-neutral Execution Plane Adapter.
+- EU/private microVM runner for sensitive agentic execution when sovereignty
+  requirements apply.
 - OpenShift/Kubernetes for controlled runtime isolation.
 - OAuth2/OIDC, managed identities and Key Vault for authentication/secrets.
 - Mistral Studio Observability, Judges, Campaigns, Datasets and AI Registry as
